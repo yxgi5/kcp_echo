@@ -7,7 +7,7 @@
 #include<arpa/inet.h>
 
 #define MAXLINE 1024
-#define LOCAL_PORT    6567
+#define LOCAL_PORT    8001
 #define SERV_PORT 8000
 int main(int argc, char *argv[])
 {
