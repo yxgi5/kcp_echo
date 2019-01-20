@@ -108,14 +108,14 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    cliaddr_len = sizeof(struct sockaddr_in);
-    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&cliaddr, 0, sizeof(cliaddr));
     
     //为套接字指定目的地址信息
     cliaddr.sin_family = AF_INET;
     //inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
     cliaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     cliaddr.sin_port = htons(8001);
+    cliaddr_len = sizeof(struct sockaddr_in);
     if ((ret = connect(sockfd, (struct sockaddr* )&cliaddr, cliaddr_len)) < 0)
     {
         fprintf(stderr, "connect falied\n");
