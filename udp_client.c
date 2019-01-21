@@ -4,11 +4,72 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include<arpa/inet.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+#include <time.h>
+#include <fcntl.h>
+#include <errno.h>
+#include "ikcp.h"
+
+void millisecond_sleep(size_t n_millisecond)
+{
+    struct timespec sleepTime;
+    struct timespec time_left_to_sleep;
+    sleepTime.tv_sec = n_millisecond / 1000;
+    sleepTime.tv_nsec = (n_millisecond % 1000) * 1000 * 1000;
+    while( (sleepTime.tv_sec + sleepTime.tv_nsec) > 0 )
+    {
+        time_left_to_sleep.tv_sec = 0;
+        time_left_to_sleep.tv_nsec = 0;
+        int ret = nanosleep(&sleepTime, &time_left_to_sleep);
+        if (ret < 0)
+        {
+            fprintf(stderr, "nanosleep error with err\n");
+            //std::cerr << "nanosleep error with errno: " << errno << " " << strerror(errno) << std::endl;
+        }
+        sleepTime.tv_sec = time_left_to_sleep.tv_sec;
+        sleepTime.tv_nsec = time_left_to_sleep.tv_nsec;
+    }
+}
+
+
+/* get system time */
+void itimeofday(long *sec, long *usec)
+{
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	if (sec) *sec = time.tv_sec;
+	if (usec) *usec = time.tv_usec;
+}
+
+/* get clock in millisecond 64 */
+uint64_t iclock64(void)
+{
+    long s, u;
+    uint64_t value;
+    itimeofday(&s, &u);
+    value = ((uint64_t)s) * 1000 + (u / 1000);
+    return value;
+}
+
+
+uint32_t iclock()
+{
+    return (uint32_t)(iclock64() & 0xfffffffful);
+}
 
 #define MAXLINE 1024
 
 #define SERV_PORT 8000
+
+int fd = 0;
+struct sockaddr* dstAddr = NULL;
+int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
+{
+	sendto(fd, buf, len, 0, dstAddr, sizeof(*dstAddr));
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
     struct sockaddr_in servaddr;
@@ -18,6 +79,7 @@ int main(int argc, char *argv[])
     socklen_t servaddr_len;
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    fd = sockfd;
     if (sockfd < 0)
     {
         fprintf(stderr, "socket falied\n");
@@ -29,10 +91,17 @@ int main(int argc, char *argv[])
     servaddr.sin_family = AF_INET;
     inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
     servaddr.sin_port = htons(SERV_PORT);
+    dstAddr = &servaddr;
+    
+    ikcpcb *kcp1 = ikcp_create(0x11223344, (void*)0);
+    kcp1->output = udp_output;
+    
 
     while(fgets(buf, MAXLINE, stdin) != NULL)
     {
-        n  = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *)&servaddr,servaddr_len);
+
+        //n  = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *)&servaddr,servaddr_len);
+        n = ikcp_send(kcp1, buf, strlen(buf));
         if (n == -1)
         {
             perror("sendto error");
@@ -47,6 +116,11 @@ int main(int argc, char *argv[])
         //write(1,buf,n);  // 相当于printf
         //fputs(buf,stdout);
         memset(buf, 0, MAXLINE);
+        while(1)
+        {
+            IUINT32 ts1 = iclock();
+            ikcp_update(kcp1, ts1);
+        }
     }
     close(sockfd);
     return 0;
