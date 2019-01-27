@@ -1,15 +1,15 @@
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/time.h>
 #include <time.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "ikcp.h"
 
 void millisecond_sleep(size_t n_millisecond)
 {
@@ -62,6 +62,14 @@ uint32_t iclock()
 #define LOCAL_PORT    8001
 #define SERV_PORT 8000
 
+int fd = 0;
+struct sockaddr* dstAddr = NULL;
+int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
+{
+	sendto(fd, buf, len, 0, dstAddr, sizeof(*dstAddr));
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
     struct sockaddr_in servaddr,cliaddr;
@@ -71,8 +79,8 @@ int main(int argc, char *argv[])
     //char str[INET_ADDRSTRLEN];
     socklen_t servaddr_len;
 
-    //创建套接字
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    fd = sockfd;
     if (sockfd < 0)
     {
         fprintf(stderr, "socket falied\n");
@@ -116,18 +124,18 @@ int main(int argc, char *argv[])
     //inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
     servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     servaddr.sin_port = htons(SERV_PORT);
-    if ((ret = connect(sockfd, (struct sockaddr* )&servaddr, servaddr_len)) < 0)
-    {
-        fprintf(stderr, "connect falied\n");
-        exit(EXIT_FAILURE);
-    }
+    dstAddr = &servaddr;
     
-    //数据交互
+    ikcpcb *kcp1 = ikcp_create(0x11223344, (void*)0);
+    kcp1->output = udp_output;
+    
+
     while(fgets(buf, MAXLINE, stdin) != NULL)
     {
+
         //n  = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *)&servaddr,servaddr_len);
-        n = send(sockfd, buf, MAXLINE, 0);
-        if (n == -1) //SOCKET_ERROR
+        n = ikcp_send(kcp1, buf, strlen(buf));
+        if (n == -1)
         {
             perror("sendto error");
         }
@@ -141,6 +149,37 @@ int main(int argc, char *argv[])
         //write(1,buf,n);  // 相当于printf
         //fputs(buf,stdout);
         memset(buf, 0, MAXLINE);
+        while(1)
+        {
+            IUINT32 ts1 = iclock();
+            ikcp_update(kcp1, ts1);
+			n = recvfrom(sockfd, buf, MAXLINE, 0, (struct sockaddr *)&servaddr, &servaddr_len);
+			if (n>0)
+        	{
+            	ikcp_input(kcp1, buf, n);
+        	}
+
+            int msgLen = ikcp_peeksize(kcp1);
+		    if (msgLen > 0)
+		    {
+			    memset(buf, 0, MAXLINE);
+			    if (msgLen > 0)
+			    {
+				    ikcp_recv(kcp1, buf, msgLen);
+                    fputs(buf, stdout);
+			    }
+//			    msgLen = ikcp_peeksize(kcp1);
+		    }
+		    else
+		    {
+//		    	IUINT32 ts1 = iclock();
+//				ikcp_update(kcp1, ts1);
+		    	break;
+		    }
+        }
+//        printf("hah\n");
+//        IUINT32 ts1 = iclock();
+//		ikcp_update(kcp1, ts1);
     }
     close(sockfd);
     return 0;

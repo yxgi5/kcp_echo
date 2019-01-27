@@ -10,6 +10,8 @@
 #include <time.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "ikcp.h"
+
 
 void millisecond_sleep(size_t n_millisecond)
 {
@@ -62,6 +64,16 @@ uint32_t iclock()
 #define LOCAL_PORT    8000
 #define SERV_PORT 8001
 
+
+int fd = 0;
+struct sockaddr* dstAddr = NULL;
+int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
+{
+	sendto(fd, buf, len, 0, dstAddr, sizeof(*dstAddr));
+	return 0;
+}
+
+
 int main(int argc, char *argv[])
 {
     struct sockaddr_in servaddr,cliaddr;
@@ -78,7 +90,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "socket falied\n");
         exit(EXIT_FAILURE);
     }
-    
+    fd = sockfd;
     
     // set socket non-blocking
     {
@@ -116,26 +128,54 @@ int main(int argc, char *argv[])
     cliaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     cliaddr.sin_port = htons(8001);
     cliaddr_len = sizeof(struct sockaddr_in);
-    if ((ret = connect(sockfd, (struct sockaddr* )&cliaddr, cliaddr_len)) < 0)
-    {
-        fprintf(stderr, "connect falied\n");
-        exit(EXIT_FAILURE);
-    }
+    //if ((ret = connect(sockfd, (struct sockaddr* )&cliaddr, cliaddr_len)) < 0)
+    //{
+    //    fprintf(stderr, "connect falied\n");
+    //    exit(EXIT_FAILURE);
+    //}
+    dstAddr = &cliaddr;
 
-    //while(1)
-    while(fgets(buf, MAXLINE, stdin) != NULL)
+    ikcpcb *kcp1 = ikcp_create(0x11223344, (void*)0);
+    kcp1->output = udp_output;
+
+    while(1)
+    //while(fgets(buf, MAXLINE, stdin) != NULL)
     {
+        IUINT32 ts1 = iclock();
+        ikcp_update(kcp1, ts1);
 	    memset(buf, 0, MAXLINE);  // 清空数组
         //cliaddr_len = sizeof(cliaddr);
-        //n = recvfrom(sockfd, buf, MAXLINE, 0, (struct sockaddr *)&cliaddr, &cliaddr_len);
-        n = recv(sockfd, buf, MAXLINE, 0);
-        if (n == -1)
+        n = recvfrom(sockfd, buf, MAXLINE, 0, (struct sockaddr *)&cliaddr, &cliaddr_len);
+        //n = recv(sockfd, buf, MAXLINE, 0);
+        //if (n == -1)
+        //{
+            //perror("recv error");
+        //}
+        if (n>0)
         {
-            perror("recv error");
+            ikcp_input(kcp1, buf, n);
         }
         //buf[n] = '\0';
         //printf("%s", buf);
-        fputs(buf, stdout);
+        //fputs(buf, stdout);
+
+
+        int msgLen = ikcp_peeksize(kcp1);
+		while (msgLen > 0)
+		{
+			memset(buf, 0, MAXLINE);
+			if (msgLen > 0)
+			{
+				ikcp_recv(kcp1, buf, msgLen);
+                fputs(buf, stdout);
+			}
+			msgLen = ikcp_peeksize(kcp1);
+		}
+
+
+
+
+
         //printf("received from %s at PORT %d\n", inet_ntop(AF_INET, &cliaddr.sin_addr, str, (socklen_t )sizeof(str)), ntohs(cliaddr.sin_port));
         //for (i = 0; i < n; i++)
         //    buf[i] = toupper(buf[i]);
