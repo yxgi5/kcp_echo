@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
         	}
 
             int msgLen = ikcp_peeksize(kcp1);
-		    while (msgLen > 0)
+		    if (msgLen > 0)
 		    {
 			    memset(buf, 0, MAXLINE);
 			    if (msgLen > 0)
@@ -168,11 +168,18 @@ int main(int argc, char *argv[])
 				    ikcp_recv(kcp1, buf, msgLen);
                     fputs(buf, stdout);
 			    }
-			    msgLen = ikcp_peeksize(kcp1);
+//			    msgLen = ikcp_peeksize(kcp1);
 		    }
-            //break;
+		    else
+		    {
+//		    	IUINT32 ts1 = iclock();
+//				ikcp_update(kcp1, ts1);
+		    	break;
+		    }
         }
-        printf("hah\n");
+//        printf("hah\n");
+//        IUINT32 ts1 = iclock();
+//		ikcp_update(kcp1, ts1);
     }
     close(sockfd);
     return 0;
