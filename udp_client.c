@@ -100,7 +100,7 @@ void * send_recv()
         IUINT32 ts2= ikcp_check(kcp1, ts1);
 //        TRACE_ZZG("%d, %d\n",ts1, ts2);
 
-        //pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutex);
         ts1 = iclock();
         ikcp_update(kcp1, ts1);
 
@@ -120,7 +120,7 @@ void * send_recv()
               fputs(buf2, stdout);
             }
         }
-        //pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex);
     }
 }
 
@@ -191,16 +191,16 @@ int main(int argc, char *argv[])
 
     while(1)
     {
-        //pthread_mutex_lock(&mutex);
-        fgets(buf0, MAXLINE, stdin);
 
+        fgets(buf0, MAXLINE, stdin);
+        pthread_mutex_lock(&mutex);
         //n  = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *)&servaddr,servaddr_len);
         n = ikcp_send(kcp1, buf0, strlen(buf0));
         if (n == -1)
         {
             perror("sendto error");
         }
-        //pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex);
         //n = recvfrom(sockfd, buf, MAXLINE, 0, NULL, 0);
         //if (n == -1)
         //{
