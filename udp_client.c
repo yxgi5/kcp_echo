@@ -66,7 +66,7 @@ uint32_t iclock()
     return (uint32_t)(iclock64() & 0xfffffffful);
 }
 
-#define MAXLINE 1024
+#define MAXLINE 2048
 #define LOCAL_PORT    8001
 #define SERV_PORT 8000
 
@@ -75,7 +75,9 @@ int n;
 struct sockaddr* dstAddr = NULL;
 struct sockaddr_in servaddr,cliaddr;
 socklen_t servaddr_len;
-char buf[MAXLINE];
+char buf0[MAXLINE];
+char buf1[MAXLINE];
+char buf2[MAXLINE];
 
 int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
 {
@@ -98,25 +100,27 @@ void * send_recv()
         IUINT32 ts2= ikcp_check(kcp1, ts1);
 //        TRACE_ZZG("%d, %d\n",ts1, ts2);
 
+        //pthread_mutex_lock(&mutex);
         ts1 = iclock();
         ikcp_update(kcp1, ts1);
 
-        n = recvfrom(sockfd, buf, MAXLINE, 0, (struct sockaddr *)&servaddr, &servaddr_len);
+        n = recvfrom(sockfd, buf1, MAXLINE, 0, (struct sockaddr *)&servaddr, &servaddr_len);
         if (n>0)
         {
-            ikcp_input(kcp1, buf, n);
+            ikcp_input(kcp1, buf1, n);
         }
 
         int msgLen = ikcp_peeksize(kcp1);
         while (msgLen > 0)
         {
-            memset(buf, 0, MAXLINE);
+            memset(buf2, 0, MAXLINE);
             if (msgLen > 0)
             {
-              ikcp_recv(kcp1, buf, msgLen);
-                      fputs(buf, stdout);
+              ikcp_recv(kcp1, buf2, msgLen);
+              fputs(buf2, stdout);
             }
         }
+        //pthread_mutex_unlock(&mutex);
     }
 }
 
@@ -185,16 +189,18 @@ int main(int argc, char *argv[])
     
     pthread_create(&thread, NULL, send_recv, NULL);
 
-    while(fgets(buf, MAXLINE, stdin) != NULL)
+    while(1)
     {
+        //pthread_mutex_lock(&mutex);
+        fgets(buf0, MAXLINE, stdin);
 
         //n  = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *)&servaddr,servaddr_len);
-        n = ikcp_send(kcp1, buf, strlen(buf));
+        n = ikcp_send(kcp1, buf0, strlen(buf0));
         if (n == -1)
         {
             perror("sendto error");
         }
-        
+        //pthread_mutex_unlock(&mutex);
         //n = recvfrom(sockfd, buf, MAXLINE, 0, NULL, 0);
         //if (n == -1)
         //{

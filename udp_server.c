@@ -60,7 +60,7 @@ uint32_t iclock()
     return (uint32_t)(iclock64() & 0xfffffffful);
 }
 
-#define MAXLINE 1024
+#define MAXLINE 2048
 #define LOCAL_PORT    8000
 #define SERV_PORT 8001
 
