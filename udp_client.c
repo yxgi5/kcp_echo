@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "ikcp.h"
+#include "trace_zgg_debug.h"
 
 void millisecond_sleep(size_t n_millisecond)
 {
@@ -151,7 +152,12 @@ int main(int argc, char *argv[])
         memset(buf, 0, MAXLINE);
         while(1)
         {
-            IUINT32 ts1 = iclock();
+			IUINT32 ts2;
+			IUINT32 ts1 = iclock();
+			ts2=ikcp_check(kcp1, ts1);
+			TRACE_ZZG("%d, %d\n",ts1, ts2);
+			
+            ts1 = iclock();
             ikcp_update(kcp1, ts1);
 			n = recvfrom(sockfd, buf, MAXLINE, 0, (struct sockaddr *)&servaddr, &servaddr_len);
 			if (n>0)
@@ -178,8 +184,7 @@ int main(int argc, char *argv[])
 		    }
         }
 //        printf("hah\n");
-//        IUINT32 ts1 = iclock();
-//		ikcp_update(kcp1, ts1);
+
     }
     close(sockfd);
     return 0;

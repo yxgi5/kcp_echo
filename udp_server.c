@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "ikcp.h"
-
+#include "trace_zgg_debug.h"
 
 void millisecond_sleep(size_t n_millisecond)
 {
@@ -151,6 +151,9 @@ int main(int argc, char *argv[])
         //{
             //perror("recv error");
         //}
+        
+        //sleep(1);
+        //TRACE_ZZG("%d\n",n);
         if (n>0)
         {
             ikcp_input(kcp1, buf, n);
