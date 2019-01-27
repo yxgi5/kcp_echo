@@ -79,7 +79,8 @@ int main(int argc, char *argv[])
     struct sockaddr_in servaddr,cliaddr;
     int sockfd, n;
     int ret;
-    char buf[MAXLINE];
+    char buf0[MAXLINE];
+    char buf1[MAXLINE];
     //char str[INET_ADDRSTRLEN];
     socklen_t cliaddr_len;
 
@@ -143,9 +144,9 @@ int main(int argc, char *argv[])
     {
         IUINT32 ts1 = iclock();
         ikcp_update(kcp1, ts1);
-	    memset(buf, 0, MAXLINE);  // 清空数组
+        memset(buf0, 0, MAXLINE);  // 清空数组
         //cliaddr_len = sizeof(cliaddr);
-        n = recvfrom(sockfd, buf, MAXLINE, 0, (struct sockaddr *)&cliaddr, &cliaddr_len);
+        n = recvfrom(sockfd, buf0, MAXLINE, 0, (struct sockaddr *)&cliaddr, &cliaddr_len);
         //n = recv(sockfd, buf, MAXLINE, 0);
         //if (n == -1)
         //{
@@ -156,7 +157,7 @@ int main(int argc, char *argv[])
         //TRACE_ZZG("%d\n",n);
         if (n>0)
         {
-            ikcp_input(kcp1, buf, n);
+            ikcp_input(kcp1, buf0, n);
         }
         //buf[n] = '\0';
         //printf("%s", buf);
@@ -164,18 +165,28 @@ int main(int argc, char *argv[])
 
 
         int msgLen = ikcp_peeksize(kcp1);
-		while (msgLen > 0)
-		{
-			memset(buf, 0, MAXLINE);
-			if (msgLen > 0)
-			{
-				ikcp_recv(kcp1, buf, msgLen);
-                fputs(buf, stdout);
-			}
-			msgLen = ikcp_peeksize(kcp1);
-		}
+        while (msgLen > 0)
+        {
+            if (msgLen > 0)
+            {
+                ikcp_recv(kcp1, buf1, msgLen);
+                fputs(buf1, stdout);
+                n = ikcp_send(kcp1, buf1, strlen(buf1));
+                if (n == -1)
+                {
+                    perror("sendto error");
+                }
+            }
+            msgLen = ikcp_peeksize(kcp1);
+        }
 
-
+//        fputs(buf1, stdout);
+//        n = ikcp_send(kcp1, buf1, strlen(buf1));
+//        if (n == -1)
+//        {
+//            perror("sendto error");
+//        }
+        memset(buf1, 0, MAXLINE);
 
 
 

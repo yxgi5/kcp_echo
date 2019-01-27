@@ -113,12 +113,13 @@ void * send_recv()
         int msgLen = ikcp_peeksize(kcp1);
         while (msgLen > 0)
         {
-            memset(buf2, 0, MAXLINE);
             if (msgLen > 0)
             {
-              ikcp_recv(kcp1, buf2, msgLen);
-              fputs(buf2, stdout);
+                ikcp_recv(kcp1, buf2, msgLen);
+                fputs(buf2, stdout);
+                memset(buf2, 0, MAXLINE);
             }
+            msgLen = ikcp_peeksize(kcp1);
         }
         pthread_mutex_unlock(&mutex);
     }
